@@ -1,0 +1,70 @@
+import java.awt.FlowLayout;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+
+import org.opencv.core.Core;
+import org.opencv.core.Mat;
+import org.opencv.highgui.VideoCapture;
+
+
+public class Main 
+{
+	private static final int FPS = 5;
+	
+	private static JTextArea console;
+	
+	public static void main(String[] args) throws InterruptedException
+	{
+		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+		VideoCapture cam = new VideoCapture(0);
+		//Thread.sleep(1000);
+		cam.open(0);
+		System.out.println("Camera opened: " + cam.isOpened());
+		Mat capture = new Mat();
+		
+		//Highgui.imwrite("camera.jpg", capture);
+		
+		JFrame frame = new JFrame("MazeBot");
+		frame.setLayout(new FlowLayout());
+		frame.setSize(1000, 680);
+		
+		JLabel label = new JLabel();
+		frame.add(label);
+		console = new JTextArea(24, 20);
+		frame.add(new JScrollPane(console));
+		frame.setVisible(true);
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		
+		print("Starting camera feed");
+		final int FRAME_TIME = 1000/FPS;
+		while(true)
+		{
+			Thread.sleep(FRAME_TIME);
+			
+			cam.read(capture);		
+			label.setIcon(new ImageIcon(toBufferedImage(capture)));
+		}
+	}
+
+	public static BufferedImage toBufferedImage(Mat m)
+	{	
+	    byte [] b = new byte[m.channels()*m.cols()*m.rows()];
+	    m.get(0,0,b);
+	    BufferedImage image = new BufferedImage(m.cols(),m.rows(), BufferedImage.TYPE_3BYTE_BGR);
+	    final byte[] targetPixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+	    System.arraycopy(b, 0, targetPixels, 0, b.length);  
+	    return image;
+	}
+	
+	public static void print(String s)
+	{
+		console.append(s + "\n");
+		console.setCaretPosition(console.getDocument().getLength());
+	}
+}

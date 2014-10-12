@@ -1,0 +1,77 @@
+import java.awt.FlowLayout;
+import java.awt.image.BufferedImage;
+import java.awt.image.DataBufferByte;
+
+import javax.swing.ImageIcon;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+
+import org.opencv.core.Core;
+import org.opencv.core.Mat;
+import org.opencv.highgui.VideoCapture;
+import org.opencv.imgproc.Imgproc;
+
+
+public class Main 
+{
+	private static final int FPS = 5;
+	
+	private static JTextArea console;
+	
+	public static void main(String[] args) throws InterruptedException
+	{
+		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+		VideoCapture cam = new VideoCapture(0);
+		cam.open(0);
+		
+		//Highgui.imwrite("camera.jpg", capture);
+		
+		JFrame frame = new JFrame("MazeBot");
+		frame.setLayout(new FlowLayout());
+		frame.setSize(1000, 600);
+		
+		JLabel label = new JLabel();
+		frame.add(label);
+		console = new JTextArea(30, 24);
+		frame.add(new JScrollPane(console));
+		frame.setVisible(true);
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		
+		print("Starting camera feed");
+		final int FRAME_TIME = 1000/FPS;
+		Mat capture = new Mat();
+		while(true)
+		{
+			Thread.sleep(FRAME_TIME);
+			
+			Mat capT = new Mat();
+			Mat capG = new Mat();
+			cam.read(capture);	
+			Imgproc.cvtColor(capture, capG, Imgproc.COLOR_RGBA2GRAY);
+			Imgproc.adaptiveThreshold(capG, capT, 1000, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 5, 0);
+			label.setIcon(new ImageIcon(toBufferedImage(capT)));
+		}
+	}
+
+	public static BufferedImage toBufferedImage(Mat m)
+	{	
+	    int type = BufferedImage.TYPE_BYTE_GRAY;
+	    if(m.channels() > 1)
+	        type = BufferedImage.TYPE_3BYTE_BGR;
+	    
+	    byte [] b = new byte[m.channels()*m.cols()*m.rows()];
+	    m.get(0,0,b);
+	    BufferedImage image = new BufferedImage(m.cols(),m.rows(), type);
+	    final byte[] targetPixels = ((DataBufferByte) image.getRaster().getDataBuffer()).getData();
+	    System.arraycopy(b, 0, targetPixels, 0, b.length);  
+	    return image;
+	}
+	
+	public static void print(String s)
+	{
+		console.append(s + "\n");
+		console.setCaretPosition(console.getDocument().getLength());
+	}
+}
