@@ -1,28 +1,31 @@
 import java.awt.FlowLayout;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
+import java.util.ArrayList;
+import java.util.PriorityQueue;
 
 import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
-import javax.xml.transform.Source;
 
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
 import org.opencv.core.Size;
 import org.opencv.highgui.Highgui;
-import org.opencv.highgui.VideoCapture;
 import org.opencv.imgproc.Imgproc;
 
 //uses a* to solve a maze
 public class PathFinder 
 {
+	//public static PriorityQueue<Node> open;
+	public static Node goal;
+	
 	private static final int FPS = 5;
-	private static final int RED = 0, GREEN = 1;
-	private static final double[] RED_RGB = {0, 0, 255},
-								  GREEN_RGB = {0, 255, 0};
+	private static final int RED = 0, GREEN = 1, BLUE = 2;
+	private static final double[][] COLORS = {{0, 0, 255}, {0, 255, 0}, {255, 0, 0}};
+	
 	
 	private static JLabel label;
 	private static Mat img, display;
@@ -32,6 +35,7 @@ public class PathFinder
 	public static void main(String[] args) throws InterruptedException
 	{
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
+		
 		//VideoCapture cam = new VideoCapture(0);
 		//cam.open(0);
 		
@@ -57,8 +61,8 @@ public class PathFinder
 			//Thread.sleep(FRAME_TIME);
 			
 		img = new Mat();
-		Mat temp = map;
-		Mat imgLarge = new Mat();
+		Mat temp = map.clone();
+		//Mat imgLarge = new Mat();
 		
 		display = new Mat();
 		Imgproc.resize(map, display, new Size(320, 240));
@@ -78,11 +82,9 @@ public class PathFinder
 		Imgproc.threshold(temp, img, 200, 255, Imgproc.THRESH_BINARY);
 		
 		//expand image for viewing on the GUI
-		Imgproc.resize(img, imgLarge, new Size(), 2, 2, Imgproc.INTER_AREA);
+		//Imgproc.resize(img, imgLarge, new Size(), 2, 2, Imgproc.INTER_AREA);
 		//Imgproc.threshold(temp, imgLarge, 200, 255, Imgproc.THRESH_BINARY);
-		
-		label.setIcon(new ImageIcon(toBufferedImage(imgLarge)));
-		//}
+				//}
 			
 		//do a* algorithm stuff
 		
@@ -96,23 +98,102 @@ public class PathFinder
 		//	System.out.print("\n");
 		//}
 		
-		for(int z = 0; z < 320; z++)
+		Node[][] nodes = new Node[320][240];
+		for(int y = 0; y < 240; y++)
+			for(int x = 0; x < 320; x++)
+				nodes[x][y] = new Node(x, y);  //initialize nodes
+		
+		PriorityQueue<Node> open = new PriorityQueue<Node>();
+		goal = nodes[319][119];
+	
+		Node start = nodes[0][119];
+		start.findHeuristic();
+		start.g = 0;
+		open.add(start);
+		
+		int iters = 0;
+		while(open.peek() != goal)
 		{
-			int x = (int) (Math.random() * 320);
-			int y = (int) (Math.random() * 240);
+			Node current = open.poll();
+			current.belongsTo = Node.CLOSED;
+			drawPoint(current, BLUE);
 			
-			drawPoint(z, 50, Math.random() > 0.5 ? GREEN : RED);
+			ArrayList<Node> neighbors = new ArrayList<Node>();
+			int x = current.x, y = current.y;
+			
+			for(int a = x-1; a <= x+1; a++) //get neighbors
+			{
+				for(int b = y-1; b <= y+1; b++)
+				{
+					if(a == x && b == y)
+						continue;
+					if(a >= 0 && a < 320 && b >= 0 && b < 240 && isFree(a, b))
+						neighbors.add(nodes[a][b]);
+				}
+			}
+			
+			for(Node n : neighbors)
+			{
+				int cost = current.g + n.movementCost(current);
+				
+				if(n.belongsTo == Node.OPEN && cost < n.g)
+				{
+					open.remove(n);
+					n.belongsTo = Node.NONE;
+				}
+				if(n.belongsTo == Node.NONE)
+				{
+					n.g = cost;
+					n.findHeuristic();
+					open.add(n);
+					n.belongsTo = Node.OPEN;
+					n.parent = current;
+					drawPoint(n, GREEN);
+				}
+			}
+			
+			iters++;
+			if(iters % 20 == 0)
+				updateDisplay();
 		}
+		
+		ArrayList<Node> solution = new ArrayList<Node>();
+		
+		Node trace = goal;
+		while(trace != null)
+		{
+			solution.add(0, trace);
+			drawPoint(trace, RED);
+			trace = trace.parent;
+			updateDisplay();
+		}
+		
+		print("Solved");
+		print("Maze length: " + solution.size());
+		
+		ArrayList<Node> solvePath = new ArrayList<Node>();
+		for(int n = 0; n < solution.size(); n += 8)
+			solvePath.add(solution.get(n));
+		
+		if(solvePath.get(solvePath.size() - 1) != goal)
+			solvePath.add(goal);
+		
+		//print(solvePath.size());
+		//Imgproc.resize(map, display, new Size(320, 240));
+		//for(Node n : solvePath)
+		//	drawPoint(n, RED);
+		updateDisplay();
+			
 	}
 
-	public static boolean isOpen(int x, int y)
+	public static boolean isFree(int x, int y)
 	{
 		return img.get(y, x)[0] != 0;
 	}
 	
-	public static void drawPoint(int x, int y, int color)
+	public static void drawPoint(Node node, int color)
 	{
-		display.put(y, x, color == RED ? RED_RGB : GREEN_RGB);
+		display.put(node.y, node.x, COLORS[color]);
 	}	
 	
 	public static void updateDisplay()
@@ -138,8 +219,7 @@ public class PathFinder
 	
 	public static void print(int i)
 	{
-		print(Integer.toString(i));
-		
+		print(Integer.toString(i));	
 	}
 	
 	public static void print(String s)

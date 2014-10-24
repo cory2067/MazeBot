@@ -5,7 +5,116 @@
   <link rel="self" href="https://spring.io/blog.atom" />
   <id>http://spring.io/blog.atom</id>
   <icon>https://spring.io/favicon.ico</icon>
-  <updated>2014-10-22T17:05:09Z</updated>
+  <updated>2014-10-23T18:37:03Z</updated>
+  <entry>
+    <title>Spring AMQP 1.4 RC1 Released</title>
+    <link rel="alternate" href="https://spring.io/blog/2014/10/23/spring-amqp-1-4-rc1-released" />
+    <category term="releases" label="Releases" />
+    <author>
+      <name>Artem Bilan</name>
+    </author>
+    <id>tag:spring.io,2014-10-23:1794</id>
+    <updated>2014-10-23T18:37:03Z</updated>
+    <content type="html">&lt;p&gt;We are pleased to announce the availability of the Release Candidate for Spring AMQP 1.4; the GA is planned to be released during the first week of November.&lt;/p&gt;
+
+&lt;p&gt;First of all, thank you all who provided feedback for the &lt;a href="https://spring.io/blog/2014/09/05/spring-amqp-for-java-1-4-milestone-1-available"&gt;milestone 1.4 M1 version&lt;/a&gt; and submitted reports (bugs or new features).
+Special thanks to &lt;a href="https://spring.io/team/snicoll/"&gt;Stéphane Nicoll&lt;/a&gt;, who had introduced annotation-based message
+listeners (&lt;code&gt;@RabbitListener&lt;/code&gt;) and the new &lt;code&gt;RabbitMessagingTemplate&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2&gt;
+&lt;a name="user-content-features-and-fixes-included-in-this-release-changes-since-the-milestone" class="anchor" href="#features-and-fixes-included-in-this-release-changes-since-the-milestone" aria-hidden="true"&gt;&lt;span class="octicon octicon-link"&gt;&lt;/span&gt;&lt;/a&gt;Features and fixes included in this release (changes since the milestone)&lt;/h2&gt;
+
+&lt;ul&gt;
+&lt;li&gt;With the annotation-based message listener you can use the &lt;code&gt;@SendTo&lt;/code&gt; annotation to send the result of the method as a reply message (when there's no &lt;code&gt;replyTo&lt;/code&gt; in the inbound message):&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class="highlight highlight-java"&gt;&lt;pre&gt;&lt;span class="nd"&gt;@RabbitListener&lt;/span&gt;&lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="n"&gt;queues&lt;/span&gt; &lt;span class="o"&gt;=&lt;/span&gt; &lt;span class="s"&gt;"capitalize"&lt;/span&gt;&lt;span class="o"&gt;)&lt;/span&gt;
+&lt;span class="nd"&gt;@SendTo&lt;/span&gt;&lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="s"&gt;"capitalize.reply"&lt;/span&gt;&lt;span class="o"&gt;)&lt;/span&gt;
+&lt;span class="kd"&gt;public&lt;/span&gt; &lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="nf"&gt;capitalize&lt;/span&gt;&lt;span class="o"&gt;(&lt;/span&gt;&lt;span class="n"&gt;String&lt;/span&gt; &lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="o"&gt;)&lt;/span&gt; &lt;span class="o"&gt;{&lt;/span&gt;
+    &lt;span class="k"&gt;return&lt;/span&gt; &lt;span class="n"&gt;s&lt;/span&gt;&lt;span class="o"&gt;.&lt;/span&gt;&lt;span class="na"&gt;toUpperCase&lt;/span&gt;&lt;span class="o"&gt;();&lt;/span&gt;
+&lt;span class="o"&gt;}&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;(Annotation-basd listeners require Spring Framework 4.1.x).&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;A new &lt;code&gt;RabbitMessagingTemplate&lt;/code&gt; has been introduced, allowing the use of the &lt;code&gt;spring-messaging&lt;/code&gt; &lt;code&gt;Message&amp;lt;?&amp;gt;&lt;/code&gt; abstraction as an alternative to the Spring AMQP &lt;code&gt;Message&lt;/code&gt; (Spring Messaging &lt;code&gt;Message&amp;lt;?&amp;gt;&lt;/code&gt; is also supported by the annotated listeners). &lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;The Logback &lt;code&gt;AmqpAppender&lt;/code&gt; is now available, with configuration similar to the existing Log4j &lt;code&gt;AmqpAppender&lt;/code&gt;:&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class="highlight highlight-xml"&gt;&lt;pre&gt;&lt;span class="nt"&gt;&amp;lt;appender&lt;/span&gt; &lt;span class="na"&gt;name=&lt;/span&gt;&lt;span class="s"&gt;"AMQP"&lt;/span&gt; &lt;span class="na"&gt;class=&lt;/span&gt;&lt;span class="s"&gt;"org.springframework.amqp.rabbit.logback.AmqpAppender"&lt;/span&gt;&lt;span class="nt"&gt;&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;layout&amp;gt;&lt;/span&gt;
+        &lt;span class="nt"&gt;&amp;lt;pattern&amp;gt;&lt;/span&gt;&lt;span class="cp"&gt;&amp;lt;![CDATA[ %d %p %t [%c] - &amp;lt;%m&amp;gt;%n ]]&amp;gt;&lt;/span&gt;&lt;span class="nt"&gt;&amp;lt;/pattern&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;/layout&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;abbreviation&amp;gt;&lt;/span&gt;36&lt;span class="nt"&gt;&amp;lt;/abbreviation&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;applicationId&amp;gt;&lt;/span&gt;MyApplication&lt;span class="nt"&gt;&amp;lt;/applicationId&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;routingKeyPattern&amp;gt;&lt;/span&gt;%property{applicationId}.%c.%p&lt;span class="nt"&gt;&amp;lt;/routingKeyPattern&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;generateId&amp;gt;&lt;/span&gt;true&lt;span class="nt"&gt;&amp;lt;/generateId&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;charset&amp;gt;&lt;/span&gt;UTF-8&lt;span class="nt"&gt;&amp;lt;/charset&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;durable&amp;gt;&lt;/span&gt;false&lt;span class="nt"&gt;&amp;lt;/durable&amp;gt;&lt;/span&gt;
+    &lt;span class="nt"&gt;&amp;lt;deliveryMode&amp;gt;&lt;/span&gt;NON_PERSISTENT&lt;span class="nt"&gt;&amp;lt;/deliveryMode&amp;gt;&lt;/span&gt;
+&lt;span class="nt"&gt;&amp;lt;/appender&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+&lt;ul&gt;
+&lt;li&gt;The &lt;code&gt;RabbitTemplate&lt;/code&gt; can now be configured with an &lt;code&gt;AbstractRoutingConnectionFactory&lt;/code&gt; with &lt;code&gt;expression&lt;/code&gt; attributes to determine the target &lt;code&gt;ConnectionFactory&lt;/code&gt; depending on the &lt;code&gt;RabbitTemplate&lt;/code&gt; operation:&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class="highlight highlight-xml"&gt;&lt;pre&gt;&lt;span class="nt"&gt;&amp;lt;rabbit:template&lt;/span&gt; &lt;span class="na"&gt;connection-factory=&lt;/span&gt;&lt;span class="s"&gt;"RoutingConnectionFactory"&lt;/span&gt;
+     &lt;span class="na"&gt;send-connection-factory-selector-expression=&lt;/span&gt;&lt;span class="s"&gt;"messageProperties.userId"&lt;/span&gt;
+     &lt;span class="na"&gt;receive-connection-factory-selector-expression=&lt;/span&gt;&lt;span class="s"&gt;"#root == 'fooQueue' ? 'foo' : null"&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+&lt;ul&gt;
+&lt;li&gt;In addition, the &lt;code&gt;mandatory-expression&lt;/code&gt; attribute has been added to the &lt;code&gt;RabbitTemplate&lt;/code&gt; to set the &lt;code&gt;mandatory&lt;/code&gt; flag for each sent message:&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;div class="highlight highlight-xml"&gt;&lt;pre&gt;&lt;span class="nt"&gt;&amp;lt;rabbit:template&lt;/span&gt; &lt;span class="na"&gt;connection-factory=&lt;/span&gt;&lt;span class="s"&gt;"connectionFactory"&lt;/span&gt;
+      &lt;span class="na"&gt;mandatory-expression=&lt;/span&gt;&lt;span class="s"&gt;"messageProperties.contentType == 'application/json'"&lt;/span&gt;&lt;span class="nt"&gt;/&amp;gt;&lt;/span&gt;
+&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;(Previously, &lt;code&gt;mandatory&lt;/code&gt; was set at the template level).&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;The &lt;code&gt;AbstractRoutingConnectionFactory&lt;/code&gt; is now also supported for the &lt;code&gt;MessageListenerContainer&lt;/code&gt;, where the &lt;code&gt;key&lt;/code&gt; for
+the target &lt;code&gt;ConnectionFactory&lt;/code&gt; is based on the configured &lt;code&gt;queueNames&lt;/code&gt; array&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;See the &lt;a href="https://jira.spring.io/secure/ReleaseNote.jspa?version=14724&amp;amp;projectId=10450"&gt;Release Notes&lt;/a&gt;
+and the &lt;a href="http://projects.spring.io/spring-amqp/"&gt;Project Page&lt;/a&gt; for more information.&lt;/p&gt;</content>
+  </entry>
+  <entry>
+    <title>See how to build, test, secure, and add hypermedia with this new tutorial, "Building REST Services with Spring"</title>
+    <link rel="alternate" href="https://spring.io/blog/2014/10/23/see-how-to-build-test-secure-and-add-hypermedia-with-this-new-tutorial-building-rest-services-with-spring" />
+    <category term="engineering" label="Engineering" />
+    <author>
+      <name>Greg Turnquist</name>
+    </author>
+    <id>tag:spring.io,2014-10-23:1795</id>
+    <updated>2014-10-23T17:10:33Z</updated>
+    <content type="html">&lt;p&gt;Greetings Spring Community!&lt;/p&gt;
+
+&lt;p&gt;Today we have released a new tutorial written by Spring geek &lt;a href="http://spring.io/team/jlong"&gt;Josh Long&lt;/a&gt;, the man who travels the globe talking about Spring: &lt;a href="http://spring.io/guides/tutorials/bookmarks"&gt;Building REST Services with Spring&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;In this sleek tutorial, you can read about the simplicity and power of building RESTful web services using Spring. You'll also see how to:&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;Test them with Spring's powerful MockMvc&lt;/li&gt;
+&lt;li&gt;Secure them with &lt;a href="http://projects.spring.io/spring-security"&gt;Spring Security&lt;/a&gt;
+&lt;/li&gt;
+&lt;li&gt;Plugin error handling&lt;/li&gt;
+&lt;li&gt;Add &lt;a href="http://projects.spring.io/spring-hateoas"&gt;hypermedia controls&lt;/a&gt;
+&lt;/li&gt;
+&lt;li&gt;Dabble with &lt;a href="http://projects.spring.io/spring-security-oauth"&gt;OAuth&lt;/a&gt;
+&lt;/li&gt;
+&lt;li&gt;See it all using &lt;a href="http://projects.spring.io/spring-boot"&gt;Spring Boot&lt;/a&gt;
+&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;It's a really good read with LOTS of code (you know, the important stuff). What about the existing REST tutorial? It was a bit dated on concepts we wanted to cover and state-of-the-art, so it has been retired in favor of this one.&lt;/p&gt;
+
+&lt;p&gt;Share and enjoy!&lt;/p&gt;</content>
+  </entry>
   <entry>
     <title>Introducing Spring Sync</title>
     <link rel="alternate" href="https://spring.io/blog/2014/10/22/introducing-spring-sync" />
@@ -1095,44 +1204,6 @@ Both tool suites ship on top of the latest Eclipse Luna 4.4 SR1 release as 64bit
 &lt;p&gt;Thursday, October 23, 2014, 2014 3:00PM BST (London GMT+01:00) &lt;a href="http://connect.pivotal.io/OSS_Webinar_BuildingBootfulUIswithSpringBootandVaadin7AM_Register.html"&gt;Register&lt;/a&gt;&lt;/p&gt;
 
 &lt;p&gt;Thursday, October 23, 2014 10:00AM PDT (San Francisco GMT-07:00) &lt;a href="http://connect.pivotal.io/OSS_Webinar_BuildingBootfulUIswithSpringBootandVaadin10AM_Register.html"&gt;Register&lt;/a&gt;&lt;/p&gt;</content>
-  </entry>
-  <entry>
-    <title>Webinar: Security for Microservices with Spring and OAuth2</title>
-    <link rel="alternate" href="https://spring.io/blog/2014/10/01/webinar-security-for-microservices-with-spring-and-oauth2" />
-    <category term="news" label="News and Events" />
-    <author>
-      <name>Pieter Humphrey</name>
-    </author>
-    <id>tag:spring.io,2014-10-01:1778</id>
-    <updated>2014-10-01T01:10:00Z</updated>
-    <content type="html">&lt;p&gt;Speaker: Dave Syer&lt;/p&gt;
-
-&lt;p&gt;Security for Microservices with Spring and OAuth2 OAuth2 is a lightweight security protocol that is well-suited for use with HTTP, the protocol at the heart of many modern architectures. Spring Security OAuth2 has a load of new features, not the least of which being the `@Configuration` support in version 2.0. Combine these with Spring Boot and you have a platform which can get you a secure HTTP service application in about 20 lines of code. This presentation shows how the combination of rapid development and production-ready features in the modern Spring stack are a perfect mixture for developing secure components in a system composed of microservices. We explore the new features in Spring OAuth2, guide you through the choice of which to use and when, and show how easy they are to enable quickly.&lt;/p&gt;
-
-&lt;p&gt;Tuesday, November 4, 2014 3:00PM GMT (London GMT) &lt;a href="http://connect.pivotal.io/OSS_Webinar_SecurityforMicroserviceswithSpringandOAuth2_7AM_Register.html"&gt;Register&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;Tuesday, November 4, 2014 10:00AM PST (San Francisco GMT-08:00)  &lt;a href="http://connect.pivotal.io/OSS_Webinar_SecurityforMicroserviceswithSpringandOAuth2_10AM_Register.html"&gt;Register&lt;/a&gt;&lt;/p&gt;</content>
-  </entry>
-  <entry>
-    <title>Webinar Replay: Why I Recommend Spring</title>
-    <link rel="alternate" href="https://spring.io/blog/2014/09/26/webinar-replay-why-i-recommend-spring" />
-    <category term="news" label="News and Events" />
-    <author>
-      <name>Pieter Humphrey</name>
-    </author>
-    <id>tag:spring.io,2014-09-26:1773</id>
-    <updated>2014-09-26T14:03:00Z</updated>
-    <content type="html">&lt;p&gt;Speaker: Michael Plod&lt;/p&gt;
-
-&lt;p&gt;Slides: &lt;a href="https://speakerdeck.com/mploed/pivotal-webinar-why-do-i-recommend-spring"&gt;https://speakerdeck.com/mploed/pivotal-webinar-why-do-i-recommend-spring&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;Is Spring the new legacy as quite a few people tell you on their blogs? I disagree on many levels. Throughout this session I will holistically detail without any polemics why I do recommend using the Spring Framework and its ecosystem. Aspects that will be covered include: operational impacts, ecosystem, coding and road maps. This presentation is aimed at IT managers, Architects and Developers alike.&lt;/p&gt;
-
-&lt;p&gt;Learn more about Spring IO: &lt;a href="http://spring.io"&gt;http://spring.io&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;Learn more about Spring IO Platform: &lt;a href="http://spring.io/platform"&gt;http://spring.io/platform&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;/p&gt;&lt;iframe width="420" height="315" src="//www.youtube.com/embed/z1rpWpSKtT8" frameborder="0" allowfullscreen&gt;&lt;/iframe&gt;</content>
   </entry>
 </feed>
 
