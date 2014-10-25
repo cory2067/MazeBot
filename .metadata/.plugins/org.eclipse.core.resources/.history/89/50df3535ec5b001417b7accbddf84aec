@@ -61,8 +61,8 @@ public class PathFinder
 			//Thread.sleep(FRAME_TIME);
 			
 		img = new Mat();
-		Mat temp = map;
-		Mat imgLarge = new Mat();
+		Mat temp = map.clone();
+		//Mat imgLarge = new Mat();
 		
 		display = new Mat();
 		Imgproc.resize(map, display, new Size(320, 240));
@@ -82,11 +82,9 @@ public class PathFinder
 		Imgproc.threshold(temp, img, 200, 255, Imgproc.THRESH_BINARY);
 		
 		//expand image for viewing on the GUI
-		Imgproc.resize(img, imgLarge, new Size(), 2, 2, Imgproc.INTER_AREA);
+		//Imgproc.resize(img, imgLarge, new Size(), 2, 2, Imgproc.INTER_AREA);
 		//Imgproc.threshold(temp, imgLarge, 200, 255, Imgproc.THRESH_BINARY);
-		
-		label.setIcon(new ImageIcon(toBufferedImage(imgLarge)));
-		//}
+				//}
 			
 		//do a* algorithm stuff
 		
@@ -106,15 +104,16 @@ public class PathFinder
 				nodes[x][y] = new Node(x, y);  //initialize nodes
 		
 		PriorityQueue<Node> open = new PriorityQueue<Node>();
-		goal = nodes[319][239];
+		goal = nodes[319][119];
 	
-		Node start = nodes[10][10];
+		Node start = nodes[0][119];
 		start.findHeuristic();
 		start.g = 0;
 		open.add(start);
 		
-		//while(open.peek() != goal)
-		//{
+		int iters = 0;
+		while(open.peek() != goal)
+		{
 			Node current = open.poll();
 			current.belongsTo = Node.CLOSED;
 			drawPoint(current, BLUE);
@@ -122,23 +121,69 @@ public class PathFinder
 			ArrayList<Node> neighbors = new ArrayList<Node>();
 			int x = current.x, y = current.y;
 			
-			for(int a = x-1; a <= x+1; a++)
+			for(int a = x-1; a <= x+1; a++) //get neighbors
 			{
 				for(int b = y-1; b <= y+1; b++)
 				{
 					if(a == x && b == y)
 						continue;
-					if(isFree(a, b) && a >= 0 && a < 320 && b >= 0 && b < 240)
+					if(a >= 0 && a < 320 && b >= 0 && b < 240 && isFree(a, b))
 						neighbors.add(nodes[a][b]);
 				}
 			}
 			
-			print(neighbors.size());
 			for(Node n : neighbors)
-				print(n.toString());
-		//}
+			{
+				int cost = current.g + n.movementCost(current);
+				
+				if(n.belongsTo == Node.OPEN && cost < n.g)
+				{
+					open.remove(n);
+					n.belongsTo = Node.NONE;
+				}
+				if(n.belongsTo == Node.NONE)
+				{
+					n.g = cost;
+					n.findHeuristic();
+					open.add(n);
+					n.belongsTo = Node.OPEN;
+					n.parent = current;
+					drawPoint(n, GREEN);
+				}
+			}
+			
+			iters++;
+			if(iters % 20 == 0)
+				updateDisplay();
+		}
 		
+		ArrayList<Node> solution = new ArrayList<Node>();
 		
+		Node trace = goal;
+		while(trace != null)
+		{
+			solution.add(0, trace);
+			drawPoint(trace, RED);
+			trace = trace.parent;
+			updateDisplay();
+		}
+		
+		print("Solved");
+		print("Maze length: " + solution.size());
+		
+		ArrayList<Node> solvePath = new ArrayList<Node>();
+		for(int n = 0; n < solution.size(); n += 8)
+			solvePath.add(solution.get(n));
+		
+		if(solvePath.get(solvePath.size() - 1) != goal)
+			solvePath.add(goal);
+		
+		//print(solvePath.size());
+		//Imgproc.resize(map, display, new Size(320, 240));
+		//for(Node n : solvePath)
+		//	drawPoint(n, RED);
+		updateDisplay();
+			
 	}
 
 	public static boolean isFree(int x, int y)
@@ -174,8 +219,7 @@ public class PathFinder
 	
 	public static void print(int i)
 	{
-		print(Integer.toString(i));
-		
+		print(Integer.toString(i));	
 	}
 	
 	public static void print(String s)

@@ -30,7 +30,6 @@ public class PathFinder
 	private static JLabel label;
 	private static Mat img, display;
 	private static JTextArea console;
-	private static boolean running = true;
 	
 	public static void main(String[] args) throws InterruptedException
 	{
@@ -53,7 +52,6 @@ public class PathFinder
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
 		//print("Starting camera feed");
-		final int FRAME_TIME = 1000/FPS;
 		Mat map = Highgui.imread("map.jpg");
 		
 		//while(running)
