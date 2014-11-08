@@ -31,8 +31,9 @@ public class Node implements Comparable<Node>
 		int dx = Math.abs(x - MazeBot.goal.x);
 		int dy = Math.abs(y - MazeBot.goal.y);
 		
-		h = 10 * (dx + dy) - 6 * Math.min(dx, dy); //diagonal distance
-		//h = 10 * (dx + dy); //manhattan distance
+
+		//h = 10 * (dx + dy) - 6 * Math.min(dx, dy); //diagonal distance
+		h = 10 * (dx + dy); //manhattan distance
 	}
 	
 	public int movementCost(Node n)

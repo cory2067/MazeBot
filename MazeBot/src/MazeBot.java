@@ -23,8 +23,6 @@ import org.opencv.imgproc.Imgproc;
 
 public class MazeBot 
 {
-	private static final int WAIT_TIME = 100;
-	
 	public static Node goal;
 	private static JTextArea console;
 	private static JLabel label;
@@ -36,8 +34,7 @@ public class MazeBot
 	public static void main(String[] args) throws InterruptedException
 	{
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-		
-		//Highgui.imwrite("camera.jpg", capture);
+	
 		
 		JFrame frame = new JFrame("MazeBot");
 		frame.setLayout(new FlowLayout());
@@ -72,81 +69,116 @@ public class MazeBot
 		print("Starting camera feed");
 		startButton.setEnabled(true);
 		
-		//Mat img = new Mat();
-		//Mat imgLast = new Mat();
-		//cam.read(imgLast); //initialize to some 640x480 mat; lazy solution
-		//int steadyFrames = 0;
-		
-		//int iters = 0;
+		Mat map = new Mat();
 		while(running)
-		{
+		{	
 			img = new Mat();
 			Mat temp = new Mat();
-			Mat imgLarge = new Mat();
 			
-			cam.read(temp);	//read raw img (640x480)
-			Imgproc.cvtColor(temp, img, Imgproc.COLOR_RGBA2GRAY); //convert to grayscale
+			cam.read(map); //read raw img (640x480)
+			Imgproc.cvtColor(map, img, Imgproc.COLOR_RGBA2GRAY); //convert to grayscale
+		
 			
 			//apply adaptive threshold to convert to black and white
 			Imgproc.adaptiveThreshold(img, temp, 1000, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 9, 8);
 			
 			//morph open to improve clarity of maze walls
-			Mat kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(4, 4));
+			Mat kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(2, 2));
 			Imgproc.morphologyEx(temp, img, Imgproc.MORPH_OPEN, kernel);
 			
-			//make image smaller to improve processing speed
-			Imgproc.resize(img, temp, new Size(320, 240));
-			Imgproc.threshold(temp, img, 200, 255, Imgproc.THRESH_BINARY);
+			//maybe try erode/dilate if quality is insufficient
+			//kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(1, 1));
+			///Imgproc.morphologyEx(img, temp, Imgproc.MORPH_ERODE, kernel);
+			//img = temp.clone();
 			
-			//expand image for viewing on the GUI
-			Imgproc.resize(img, imgLarge, new Size(), 2, 2, Imgproc.INTER_AREA);
-			//Imgproc.threshold(temp, imgLarge, 200, 255, Imgproc.THRESH_BINARY);
-			
-			label.setIcon(new ImageIcon(toBufferedImage(imgLarge)));
-			
-			//int diff = 0;
-			//for(int y = 0; y < 240; y++)
-			//	for(int x = 0; x < 320; x++)
-			//		diff += (get(img, x, y) != get(imgLast, x, y)) ? 1 : 0;
-			
-			//if(diff < 5000)
-			//	steadyFrames++;
-			//else
-			//	steadyFrames = 0;
-			//print(steadyFrames);
-			//imgLast = img;
-			//iters++;
-			//if(iters > 20 && steadyFrames == 5)
-			//	break;
-			
-			Thread.sleep(WAIT_TIME);
+			label.setIcon(new ImageIcon(toBufferedImage(img)));
 		}
 		
-		Mat map = new Mat();
-		display = new Mat();
-		cam.read(map);
-		Imgproc.resize(map, display, new Size(320, 240));
+		display = new Mat(); //what will be sent to the screen
+		display = map.clone();
+
 		
 		startButton.setEnabled(false);
 		print("Image captured");
 		
+		print("Preprocessing map");
+		//improve preprocessing efficiency in the future
+		boolean border = false;
+		int yBlock = 0, step = 2;
+		for(int i = 0; i < 4; i++)
+		{
+			if(i == 2)
+			{
+				yBlock = 478;
+				step = -2;
+			}
+			
+			border = false;
+			for(;; yBlock+=step)
+			{
+				try{
+					if(!border && (!isFree(320, yBlock) || !isFree(320, yBlock+1)))
+						border = true;
+					else if(border && isFree(320, yBlock) && isFree(320, yBlock+1))
+						break;
+				} catch(Exception e) {
+					print("Could not recognize a maze\nWill attempt to continue");
+					break;
+				}
+				
+				blockPoint(320, yBlock);
+				blockPoint(320, yBlock+1);
+			}
+			border = false;
+		}
+		
+		int startX = 0;
+		border = false;
+		for(;; startX += 2)
+		{
+			try{
+				if(!border && (!isFree(startX, 240) || !isFree(startX+1, 240)))
+					border = true;
+				else if(border && isFree(startX, 240) && isFree(startX+1, 240))
+					break;
+			} catch(Exception e) {
+				print("Could not find a starting point\nWill attempt to continue");
+				break;
+			}
+		}
+		
+		int goalX = 638;
+		border = false;
+		for(;; goalX -= 2)
+		{
+			try{
+				if(!border && (!isFree(goalX, 240) || !isFree(goalX+1, 240)))
+					border = true;
+				else if(border && isFree(goalX, 240) && isFree(goalX+1, 240))
+					break;
+			} catch(Exception e) {
+				print("Could not find a goal to reach\nWill attempt to continue");
+				break;
+			}
+		}
+		
 		print("Running A* algorithm");
-		Node[][] nodes = new Node[320][240];
-		for(int y = 0; y < 240; y++)
-			for(int x = 0; x < 320; x++)
+		Node[][] nodes = new Node[640][480];
+		for(int y = 0; y < 480; y++)
+			for(int x = 0; x < 640; x++)
 				nodes[x][y] = new Node(x, y);  //initialize nodes
 		
 		PriorityQueue<Node> open = new PriorityQueue<Node>();
-		goal = nodes[319][119];
+		goal = nodes[goalX][239];
 	
-		Node start = nodes[0][119];
+		Node start = nodes[startX][239];
 		start.findHeuristic();
 		start.g = 0;
 		open.add(start);
 		
 		int iters = 0;
 		boolean failure = false;
-		while(true)
+		while(true) //A* algorithm
 		{
 			Node current = open.poll();
 			
@@ -170,10 +202,11 @@ public class MazeBot
 				{
 					if(a == x && b == y)
 						continue;
-					if(a >= 0 && a < 320 && b >= 0 && b < 240 && isFree(a, b))
+					if(a >= 0 && a < 640 && b >= 0 && b < 480 && isFree(a, b))
 						neighbors.add(nodes[a][b]);
 				}
 			}
+			
 			
 			for(Node n : neighbors)
 			{
@@ -196,7 +229,7 @@ public class MazeBot
 			}
 			
 			iters++;
-			if(iters % 20 == 0)
+			if(iters % 80 == 0)
 				updateDisplay();
 		}
 		
@@ -210,13 +243,23 @@ public class MazeBot
 		ArrayList<Node> solution = new ArrayList<Node>();
 		
 		Node trace = goal;
-		while(trace != null)
+		int sIters = 0;
+		while(trace != null) //draw solution
 		{
 			solution.add(0, trace);
 			drawPoint(trace, RED);
-			trace = trace.parent;
-			updateDisplay();
+			trace = trace.parent;		
+			
+			sIters++;
+			if(sIters % 2 == 0)
+				updateDisplay();
 		}
+		
+		//redraw solution in bold, directly on map (somewhat inefficient)
+		display = map.clone();
+		for(Node n : solution)
+			drawBoldPoint(n, RED);
+		updateDisplay();
 		
 		print("Solved maze in " + iters + " iterations of A*");
 		print("Maze length: " + solution.size() + " pixels");
@@ -235,6 +278,11 @@ public class MazeBot
 		updateDisplay();
 	}
 	
+	public static void blockPoint(int x, int y)
+	{
+		img.put(y, x, 0);
+	}
+	
 	public static boolean isFree(int x, int y)
 	{
 		return img.get(y, x)[0] != 0;
@@ -245,11 +293,17 @@ public class MazeBot
 		display.put(node.y, node.x, COLORS[color]);
 	}	
 	
+	public static void drawBoldPoint(Node node, int color)
+	{
+		display.put(node.y, node.x, COLORS[color]);
+		display.put(node.y, node.x+1, COLORS[color]);
+		display.put(node.y+1, node.x, COLORS[color]);
+		display.put(node.y+1, node.x+1, COLORS[color]);
+	}
+	
 	public static void updateDisplay()
 	{
-		Mat displayLarge = new Mat();
-		Imgproc.resize(display, displayLarge, new Size(), 2, 2, Imgproc.INTER_AREA);		
-		label.setIcon(new ImageIcon(toBufferedImage(displayLarge)));
+		label.setIcon(new ImageIcon(toBufferedImage(display)));
 	}
 	
 	public static int get(Mat m, int x, int y)
