@@ -15,6 +15,8 @@ import javax.swing.JTextArea;
 
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
+import org.opencv.core.Point;
+import org.opencv.core.Scalar;
 import org.opencv.core.Size;
 import org.opencv.highgui.Highgui;
 import org.opencv.highgui.VideoCapture;
@@ -26,7 +28,9 @@ public class MazeBot
 	public static Node goal;
 	private static JTextArea console;
 	private static JLabel label;
-	private static Mat img, display;
+	private static JButton startButton;
+	private static Mat img, display, circle;
+	private static VideoCapture cam;
 	private static final int RED = 0, GREEN = 1, BLUE = 2;
 	private static final double[][] COLORS = {{0, 0, 255}, {0, 255, 0}, {255, 0, 0}};
 	private static boolean running = true;
@@ -42,9 +46,11 @@ public class MazeBot
 		
 		label = new JLabel();
 		frame.add(label);
+		Mat black = Mat.zeros(480, 640, 0);
+		label.setIcon(new ImageIcon(toBufferedImage(black)));
 		console = new JTextArea(30, 24);
 		frame.add(new JScrollPane(console));
-		JButton startButton = new JButton("Start");
+		startButton = new JButton("Start");
 		startButton.setEnabled(false);
 		startButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -54,7 +60,7 @@ public class MazeBot
 		frame.add(startButton);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
-		VideoCapture cam = new VideoCapture(0);
+		cam = new VideoCapture(0);
 		cam.open(0);
 		frame.setVisible(true);
 		
@@ -62,13 +68,25 @@ public class MazeBot
 		{
 			print("No camera detected\nPlug in webcam and restart program");
 			running = false;
-			Mat nocam = Highgui.imread("nocam.jpg");
-			label.setIcon(new ImageIcon(toBufferedImage(nocam)));
+			label.setIcon(new ImageIcon(toBufferedImage(black)));
 			return;
 		}
 		print("Starting camera feed");
 		startButton.setEnabled(true);
 		
+		circle = Highgui.imread("circle.png");
+		Imgproc.cvtColor(circle, circle, Imgproc.COLOR_RGBA2GRAY);
+		
+		//questionable infinite loop
+		while(true)
+		{
+			running = true;
+			run();
+		}
+	}
+	
+	public static void run() throws InterruptedException
+	{
 		Mat map = new Mat();
 		while(running)
 		{	
@@ -77,11 +95,10 @@ public class MazeBot
 			
 			cam.read(map); //read raw img (640x480)
 			Imgproc.cvtColor(map, img, Imgproc.COLOR_RGBA2GRAY); //convert to grayscale
-		
 			
 			//apply adaptive threshold to convert to black and white
 			Imgproc.adaptiveThreshold(img, temp, 1000, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 9, 8);
-			
+
 			//morph open to improve clarity of maze walls
 			Mat kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(2, 2));
 			Imgproc.morphologyEx(temp, img, Imgproc.MORPH_OPEN, kernel);
@@ -91,6 +108,11 @@ public class MazeBot
 			///Imgproc.morphologyEx(img, temp, Imgproc.MORPH_ERODE, kernel);
 			//img = temp.clone();
 			
+			Mat loc = new Mat();
+			Imgproc.matchTemplate(img, circle, loc, Imgproc.TM_CCOEFF_NORMED);
+			Point max = Core.minMaxLoc(loc).maxLoc;
+			max.x += 18; max.y += 21;
+			Core.circle(img, max, 12, new Scalar(0));
 			label.setIcon(new ImageIcon(toBufferedImage(img)));
 		}
 		
@@ -103,43 +125,91 @@ public class MazeBot
 		
 		print("Preprocessing map");
 		//improve preprocessing efficiency in the future
-		boolean border = false;
-		int yBlock = 0, step = 2;
+		
+		//start experimental code
+		//does not work at all
+		int[] amt = new int[640];
+		for(int x = 20; x < 620; x++)
+		{
+			for(int y = 0; y < 480; y++)
+			{
+				if(!isFree(x, y))
+					amt[x] += (Math.pow(Math.abs(240 - y), 3)/100.0);
+			}
+		}
+		
+		int borders[] = new int[4];
+		for(int i = 0; i < 4; i++)
+		{
+			int max = -1, maxval = -1;
+			for(int a = 0; a < 640; a++)
+			{
+				if(amt[a] > maxval)
+				{
+					max = a;
+					maxval = amt[a];
+				}
+			}
+			
+			if(max < 320)
+			{
+				for(int a = 0; a < max + 8; a++)
+					amt[a] = 0;
+				max += (i < 2) ? -4 : 4;
+			}
+			else
+			{
+				for(int a = 639; a > max - 8; a--)
+					amt[a] = 0;
+				max += (i < 2) ? 4 : -4;
+			}
+			
+			borders[i] = max;
+			for(int y = 0; y < 480; y++)
+				drawPoint(new Node(max, y), RED);
+			updateDisplay();
+			Thread.sleep(1000);
+		}
+		
+		//end experimental code
+		
+		/*boolean border = false;
+		int xBlock = 0, step = 2;
 		for(int i = 0; i < 4; i++)
 		{
 			if(i == 2)
 			{
-				yBlock = 478;
+				xBlock = 638;
 				step = -2;
 			}
 			
 			border = false;
-			for(;; yBlock+=step)
+			for(;; xBlock+=step)
 			{
 				try{
-					if(!border && (!isFree(320, yBlock) || !isFree(320, yBlock+1)))
+					if(!border && (!isFree(xBlock, 240) || !isFree(xBlock+1, 240)))
 						border = true;
-					else if(border && isFree(320, yBlock) && isFree(320, yBlock+1))
+					else if(border && isFree(xBlock, 240) && isFree(xBlock+1, 240))
 						break;
 				} catch(Exception e) {
 					print("Could not recognize a maze\nWill attempt to continue");
 					break;
 				}
 				
-				blockPoint(320, yBlock);
-				blockPoint(320, yBlock+1);
+				blockPoint(xBlock, 240);
+				blockPoint(xBlock+1, 240);
 			}
 			border = false;
-		}
+		}	*/
 		
-		int startX = 0;
-		border = false;
-		for(;; startX += 2)
+		boolean border = false;
+		int startY = 0;
+		for(;; startY += 2)
 		{
 			try{
-				if(!border && (!isFree(startX, 240) || !isFree(startX+1, 240)))
+				if(!border && (!isFree(320, startY) || !isFree(320, startY+1)))
 					border = true;
-				else if(border && isFree(startX, 240) && isFree(startX+1, 240))
+				else if(border && isFree(320, startY) && isFree(320, startY+1))
 					break;
 			} catch(Exception e) {
 				print("Could not find a starting point\nWill attempt to continue");
@@ -147,14 +217,14 @@ public class MazeBot
 			}
 		}
 		
-		int goalX = 638;
+		int goalY = 478;
 		border = false;
-		for(;; goalX -= 2)
+		for(;; goalY -= 2)
 		{
 			try{
-				if(!border && (!isFree(goalX, 240) || !isFree(goalX+1, 240)))
+				if(!border && (!isFree(320, goalY) || !isFree(320, goalY+1)))
 					border = true;
-				else if(border && isFree(goalX, 240) && isFree(goalX+1, 240))
+				else if(border && isFree(320, goalY) && isFree(320, goalY+1))
 					break;
 			} catch(Exception e) {
 				print("Could not find a goal to reach\nWill attempt to continue");
@@ -169,9 +239,11 @@ public class MazeBot
 				nodes[x][y] = new Node(x, y);  //initialize nodes
 		
 		PriorityQueue<Node> open = new PriorityQueue<Node>();
-		goal = nodes[goalX][239];
+		//goal = nodes[320][goalY];
+		goal = nodes[320][479];
 	
-		Node start = nodes[startX][239];
+		Node start = nodes[230][0];
+		//Node start = nodes[320][startY];
 		start.findHeuristic();
 		start.g = 0;
 		open.add(start);
@@ -236,6 +308,7 @@ public class MazeBot
 		if(failure)
 		{
 			print("Cannot solve maze");
+			//DO SOMETHING HERE
 			return;
 		}
 		
@@ -276,6 +349,13 @@ public class MazeBot
 		//for(Node n : solvePath)
 		//	drawPoint(n, RED);
 		updateDisplay();
+		startButton.setEnabled(true);
+		startButton.setText("Restart");
+		running = true;
+		while(running) 
+			Thread.sleep(20);
+		print("Restarting");
+		startButton.setText("Start");
 	}
 	
 	public static void blockPoint(int x, int y)
