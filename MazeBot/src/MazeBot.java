@@ -4,6 +4,7 @@ import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferByte;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.PriorityQueue;
 
 import javax.swing.ImageIcon;
@@ -25,21 +26,22 @@ import org.opencv.imgproc.Imgproc;
 
 public class MazeBot 
 {
+	//200 micrometers per step
 	public static Node goal;
+	public static Serial serial;
 	private static JTextArea console;
 	private static JLabel label;
 	private static JButton startButton;
-	private static Mat img, display, circle;
+	private static Mat img, display, circle, circleTop;
 	private static VideoCapture cam;
 	private static final int RED = 0, GREEN = 1, BLUE = 2;
 	private static final double[][] COLORS = {{0, 0, 255}, {0, 255, 0}, {255, 0, 0}};
+	private static Point penStart, markL, markR;
 	private static boolean running = true;
 	
 	public static void main(String[] args) throws InterruptedException
 	{
 		System.loadLibrary(Core.NATIVE_LIBRARY_NAME);
-	
-		
 		JFrame frame = new JFrame("MazeBot");
 		frame.setLayout(new FlowLayout());
 		frame.setSize(980, 600);
@@ -59,11 +61,17 @@ public class MazeBot
 		});
 		frame.add(startButton);
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		
-		cam = new VideoCapture(0);
-		cam.open(0);
 		frame.setVisible(true);
 		
+		try{
+			serial = new Serial();
+		} catch(Exception e) {
+			MazeBot.print(e.toString());
+		}
+		
+		print("Connecting to camera...");
+		cam = new VideoCapture(0);
+		cam.open(0);
 		if(!cam.isOpened())
 		{
 			print("No camera detected\nPlug in webcam and restart program");
@@ -76,6 +84,8 @@ public class MazeBot
 		
 		circle = Highgui.imread("circle.png");
 		Imgproc.cvtColor(circle, circle, Imgproc.COLOR_RGBA2GRAY);
+		circleTop = Highgui.imread("circleTop.png");
+		Imgproc.cvtColor(circleTop, circleTop, Imgproc.COLOR_RGBA2GRAY);
 		
 		//questionable infinite loop
 		while(true)
@@ -87,6 +97,7 @@ public class MazeBot
 	
 	public static void run() throws InterruptedException
 	{
+		print("Ready to begin");
 		Mat map = new Mat();
 		while(running)
 		{	
@@ -109,10 +120,30 @@ public class MazeBot
 			//img = temp.clone();
 			
 			Mat loc = new Mat();
-			Imgproc.matchTemplate(img, circle, loc, Imgproc.TM_CCOEFF_NORMED);
+			
+			Mat top = img.rowRange(0, 240).colRange(400, 639);
+			Imgproc.matchTemplate(top, circleTop, loc, Imgproc.TM_CCOEFF_NORMED);
 			Point max = Core.minMaxLoc(loc).maxLoc;
-			max.x += 18; max.y += 21;
+			max.x += 418; max.y += 21;
+			penStart = max.clone();
+			Core.circle(img, max, 12, new Scalar(0,0,0));
+			
+			Mat left = img.rowRange(240, 479).colRange(0, 320);
+			Imgproc.matchTemplate(left, circle, loc, Imgproc.TM_CCOEFF_NORMED);
+			max = Core.minMaxLoc(loc).maxLoc;
+			max.x += 17; max.y += 257;
+			markL = max.clone();
 			Core.circle(img, max, 12, new Scalar(0));
+			
+			Mat right = img.rowRange(240, 479).colRange(320, 639);
+			Imgproc.matchTemplate(right, circle, loc, Imgproc.TM_CCOEFF_NORMED);
+			max = Core.minMaxLoc(loc).maxLoc;
+			max.x += 337; max.y += 257;
+			markR = max.clone();
+			Core.circle(img, max, 12, new Scalar(0));
+			
+			//print(Arrays.toString(getBelts(getGlobal(new Node((int)penStart.x, (int)penStart.y)))));
+			
 			label.setIcon(new ImageIcon(toBufferedImage(img)));
 		}
 		
@@ -126,54 +157,7 @@ public class MazeBot
 		print("Preprocessing map");
 		//improve preprocessing efficiency in the future
 		
-		//start experimental code
-		//does not work at all
-		int[] amt = new int[640];
-		for(int x = 20; x < 620; x++)
-		{
-			for(int y = 0; y < 480; y++)
-			{
-				if(!isFree(x, y))
-					amt[x] += (Math.pow(Math.abs(240 - y), 3)/100.0);
-			}
-		}
-		
-		int borders[] = new int[4];
-		for(int i = 0; i < 4; i++)
-		{
-			int max = -1, maxval = -1;
-			for(int a = 0; a < 640; a++)
-			{
-				if(amt[a] > maxval)
-				{
-					max = a;
-					maxval = amt[a];
-				}
-			}
-			
-			if(max < 320)
-			{
-				for(int a = 0; a < max + 8; a++)
-					amt[a] = 0;
-				max += (i < 2) ? -4 : 4;
-			}
-			else
-			{
-				for(int a = 639; a > max - 8; a--)
-					amt[a] = 0;
-				max += (i < 2) ? 4 : -4;
-			}
-			
-			borders[i] = max;
-			for(int y = 0; y < 480; y++)
-				drawPoint(new Node(max, y), RED);
-			updateDisplay();
-			Thread.sleep(1000);
-		}
-		
-		//end experimental code
-		
-		/*boolean border = false;
+		boolean border = false;
 		int xBlock = 0, step = 2;
 		for(int i = 0; i < 4; i++)
 		{
@@ -187,7 +171,7 @@ public class MazeBot
 			for(;; xBlock+=step)
 			{
 				try{
-					if(!border && (!isFree(xBlock, 240) || !isFree(xBlock+1, 240)))
+					if(!border && (!isFree(xBlock, 240) && !isFree(xBlock+1, 240)))
 						border = true;
 					else if(border && isFree(xBlock, 240) && isFree(xBlock+1, 240))
 						break;
@@ -200,9 +184,9 @@ public class MazeBot
 				blockPoint(xBlock+1, 240);
 			}
 			border = false;
-		}	*/
+		}
 		
-		boolean border = false;
+		border = false;
 		int startY = 0;
 		for(;; startY += 2)
 		{
@@ -337,12 +321,13 @@ public class MazeBot
 		print("Solved maze in " + iters + " iterations of A*");
 		print("Maze length: " + solution.size() + " pixels");
 		
-		ArrayList<Node> solvePath = new ArrayList<Node>();
-		for(int n = 0; n < solution.size(); n += 8)
-			solvePath.add(solution.get(n));
+		ArrayList<double[]> belts = new ArrayList<double[]>();
+		for(int n = 0; n < solution.size(); n++)
+		{
+			belts.add(toSteps(getBelts(getGlobal(solution.get(n)))));
+			print(Arrays.toString(belts.get(n)));
+		}
 		
-		if(solvePath.get(solvePath.size() - 1) != goal)
-			solvePath.add(goal);
 		
 		//print(solvePath.size());
 		//Imgproc.resize(map, display, new Size(320, 240));
@@ -356,6 +341,48 @@ public class MazeBot
 			Thread.sleep(20);
 		print("Restarting");
 		startButton.setText("Start");
+	}
+	
+	public static Point getLocal(Node n)
+	{			
+		Point i = new Point(n.x, n.y);
+		double distL = Math.sqrt(Math.pow(i.x - markL.x, 2) + Math.pow(i.y - markL.y, 2));
+		double distR = Math.sqrt(Math.pow(i.x - markR.x, 2) + Math.pow(i.y - markR.y, 2));
+		double d = Math.sqrt(Math.pow(markL.x - markR.x, 2) + Math.pow(markL.y - markR.y, 2));
+		double c = Math.acos((distR*distR + d*d - distL*distL)/(2*distR*d));
+		double y = distR*Math.sin(c);
+		double x = d-distR*Math.cos(c);
+		return new Point(x, y);
+	}
+	
+	public static Point getGlobal(Node n) //takes raw input
+	{
+		Point global = new Point();
+		double d = Math.sqrt(Math.pow(markL.x - markR.x, 2) + Math.pow(markL.y - markR.y, 2));
+		final double scale = 25.6 / d; //constant: cm between markers, to make a scaling constant from px -> cm
+		Point local = getLocal(n);
+		global.x = local.x * scale + 12.1; //constant: cm from edge to L
+		global.y = 47.3 - local.y * scale; //constant: cm from top to marker 
+		
+		return global;
+	}
+	
+	public static double[] toSteps(double[] cm)
+	{
+		double[] steps = new double[2];
+		steps[0] = cm[0] * 50;
+		steps[1] = cm[1] * 50;
+		return steps;
+	}
+	
+	public static double[] getBelts(Point p) //takes a global point
+	{
+		final double alpha = 1.0, beta = 7.8, gamma = 49.5;
+		
+		double[] belts = new double[2];
+		belts[0] = Math.sqrt(Math.pow(p.x - alpha, 2) + Math.pow(p.y - beta, 2));
+		belts[1] = Math.sqrt(Math.pow(gamma - p.x - alpha, 2) + Math.pow(p.y - beta, 2));
+		return belts;
 	}
 	
 	public static void blockPoint(int x, int y)
@@ -409,6 +436,7 @@ public class MazeBot
 	{
 		print(Integer.toString(i));
 	}
+	
 	public static void print(String s)
 	{
 		console.append(s + "\n");
