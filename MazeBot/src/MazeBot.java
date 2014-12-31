@@ -226,7 +226,7 @@ public class MazeBot
 		//goal = nodes[320][goalY];
 		goal = nodes[320][479];
 	
-		Node start = nodes[230][0];
+		Node start = nodes[320][0];
 		//Node start = nodes[320][startY];
 		start.findHeuristic();
 		start.g = 0;
@@ -320,15 +320,53 @@ public class MazeBot
 		
 		print("Solved maze in " + iters + " iterations of A*");
 		print("Maze length: " + solution.size() + " pixels");
-		
-		ArrayList<double[]> belts = new ArrayList<double[]>();
+			
+		ArrayList<int[]> belts = new ArrayList<int[]>();
 		for(int n = 0; n < solution.size(); n++)
 		{
 			belts.add(toSteps(getBelts(getGlobal(solution.get(n)))));
-			print(Arrays.toString(belts.get(n)));
+			//print(Arrays.toString(belts.get(n)));
+		}
+		ArrayList<Byte> steps = new ArrayList<Byte>();
+		steps.add((byte) 0);
+		for(int n = 1; n < solution.size(); n++)
+		{
+			int left = belts.get(n)[0] - belts.get(n-1)[0];
+			int right = belts.get(n)[1] - belts.get(n-1)[1];	
+			if(Math.abs(left) > 4 || Math.abs(right) > 4)
+				print("ERROR: Step instruction exceeds 4");
+			left += 4; right += 4;
+			steps.add((byte) (left * 10 + right));
+			//print(steps.get(n));
 		}
 		
+		//90 for pen down, 91 for pen up
 		
+		int i = 0;
+		while(i < steps.size())
+		{
+			byte[] batch = new byte[256];
+			Arrays.fill(batch, (byte) 44);
+			
+			for(int a = 0; a < 256; a++)
+			{
+				batch[a] = steps.get(i);
+				i++;
+				if(i >= steps.size())
+					break;
+			}
+			
+			while(!serial.ready)
+				Thread.sleep(1);
+			serial.sendSteps(batch);
+			
+			//print("Drawing: " + (i-256)*100/solution.size() + "%");
+			//maybe add progress meter	
+		}
+		
+		while(!serial.ready)
+			Thread.sleep(1);
+		print("Drawing: 100%");
 		//print(solvePath.size());
 		//Imgproc.resize(map, display, new Size(320, 240));
 		//for(Node n : solvePath)
@@ -343,7 +381,8 @@ public class MazeBot
 		startButton.setText("Start");
 	}
 	
-	public static Point getLocal(Node n)
+	//old version -- redundant trigonometry; less optimized
+	/*public static Point getLocal(Node n)
 	{			
 		Point i = new Point(n.x, n.y);
 		double distL = Math.sqrt(Math.pow(i.x - markL.x, 2) + Math.pow(i.y - markL.y, 2));
@@ -352,6 +391,20 @@ public class MazeBot
 		double c = Math.acos((distR*distR + d*d - distL*distL)/(2*distR*d));
 		double y = distR*Math.sin(c);
 		double x = d-distR*Math.cos(c);
+		return new Point(x, y);
+	}*/
+	
+	public static Point getLocal(Node n)
+	{
+		Point i = new Point(n.x, n.y);
+		double distL = Math.sqrt(Math.pow(i.x - markL.x, 2) + Math.pow(i.y - markL.y, 2));
+		double distR = Math.sqrt(Math.pow(i.x - markR.x, 2) + Math.pow(i.y - markR.y, 2));
+		double d = Math.sqrt(Math.pow(markL.x - markR.x, 2) + Math.pow(markL.y - markR.y, 2));
+		double cosc = (distR*distR + d*d - distL*distL)/(2*distR*d);
+		double y = distR*Math.sqrt(1-cosc*cosc);
+		double x = d-distR*cosc;
+		if(n.y > (markR.y - markL.y)/(markR.x - markL.x)*(n.x - markL.x) + markL.y)
+			y *= -1;
 		return new Point(x, y);
 	}
 	
@@ -362,16 +415,15 @@ public class MazeBot
 		final double scale = 25.6 / d; //constant: cm between markers, to make a scaling constant from px -> cm
 		Point local = getLocal(n);
 		global.x = local.x * scale + 12.1; //constant: cm from edge to L
-		global.y = 47.3 - local.y * scale; //constant: cm from top to marker 
-		
+		global.y = 47.3 - local.y * scale; //constant: cm from top to marker	
 		return global;
 	}
 	
-	public static double[] toSteps(double[] cm)
+	public static int[] toSteps(double[] cm)
 	{
-		double[] steps = new double[2];
-		steps[0] = cm[0] * 50;
-		steps[1] = cm[1] * 50;
+		int[] steps = new int[2];
+		steps[0] = (int) (cm[0] * 50 + 0.5);
+		steps[1] = (int) (cm[1] * 50 + 0.5);
 		return steps;
 	}
 	

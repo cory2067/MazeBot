@@ -1,6 +1,5 @@
 #include <Wire.h>
 #include <Adafruit_MotorShield.h>
-#include "utility/Adafruit_PWMServoDriver.h"
 #include <Servo.h> 
 
 Adafruit_MotorShield AFMS = Adafruit_MotorShield(); 
@@ -9,12 +8,14 @@ Adafruit_StepperMotor *right = AFMS.getStepper(200, 1);
 Adafruit_StepperMotor *left = AFMS.getStepper(200, 2);
 Servo servo;
 
-//int leftSpeed, rightSpeed;
+#define BATCH_SIZE 256
+
 unsigned long time, leftDelay, rightDelay, leftLast, rightLast;
 int leftMode = SINGLE, rightMode = SINGLE;
+int leftDir = FORWARD, rightDir = FORWARD;
 boolean penLifted = false;
-byte steps[128];
-int arrayLoc = 128, stepL = 0, stepR = 0;
+byte steps[BATCH_SIZE];
+int arrayLoc = BATCH_SIZE, stepL = 0, stepR = 0;
 boolean arrayEmpty = true;
 
 void setup() 
@@ -27,8 +28,8 @@ void setup()
   time = micros();
   leftLast = time;
   rightLast = time;
-  left->onestep(FORWARD, SINGLE);
-  right->onestep(FORWARD, SINGLE);
+  left->onestep(FORWARD, DOUBLE);
+  right->onestep(FORWARD, DOUBLE);
   delay(100);
 }
 
@@ -45,7 +46,7 @@ void loop()
       {
         steps[aPos] = Serial.read();
         aPos++;
-        if(aPos == 128)
+        if(aPos == BATCH_SIZE)
         {
           arrayEmpty = false;
           Serial.println("done");
@@ -54,40 +55,50 @@ void loop()
       }
     }
     
-    /*for(int a = 0; a < 128; a++)
+    /*for(int a = 0; a < BATCH_SIZE; a++)
     {
       Serial.println(steps[a]);
       delay(20);
     }*/
   }
-  
-  if(penLifted)
-    servo.write(170);
-  else
-    servo.write(130);
     
   if(stepL == 0 && stepR == 0)
   {
-    if(arrayLoc == 128)
+    if(arrayLoc == BATCH_SIZE)
     {
       setLeftSpeed(0);
       setRightSpeed(0);
       arrayEmpty = true;
     }
-    stepL = steps[arrayLoc] / 10;
-    stepR = steps[arrayLoc] % 10;
-    int m = max(stepL, stepR);
-    if(m == 0)
-    {
-      setLeftSpeed(0);
-      setRightSpeed(0);
-    }
     else
     {
-      setLeftSpeed(300 * stepL / m);
-      setRightSpeed(300 * stepR / m); 
+      stepL = abs(steps[arrayLoc] / 10 - 4);
+      stepR = abs(steps[arrayLoc] % 10 - 4);
+      if(stepL == 5)
+      {
+        if(stepR == 4)
+          penLifted = false;
+        else if(stepR == 3)
+          penLifted = true;
+        setLeftSpeed(0);
+        setRightSpeed(0);
+      }
+      else
+      {
+        int m = max(stepL, stepR);
+        if(m == 0)
+        {
+          setLeftSpeed(0);
+          setRightSpeed(0);
+        }
+        else
+        {
+          setLeftSpeed(300 * (steps[arrayLoc] / 10 - 4) / m);
+          setRightSpeed(300 * (steps[arrayLoc] % 10 - 4) / m); 
+        }
+      }
+      arrayLoc++;
     }
-    arrayLoc++;
   }
   
   time = micros();
@@ -95,7 +106,7 @@ void loop()
   {
     if(time - leftLast > leftDelay && stepL > 0)
     {
-      left->onestep(FORWARD, leftMode);
+      left->onestep(leftDir, leftMode);
       stepL--;
       leftLast = time;
     } 
@@ -109,7 +120,7 @@ void loop()
   {
     if(time - rightLast > rightDelay && stepR > 0)
     {
-      right->onestep(FORWARD, rightMode); 
+      right->onestep(rightDir, rightMode); 
       stepR--;
       rightLast = time;
     }
@@ -119,25 +130,32 @@ void loop()
     rightLast = time;
   }
   
-  delayMicroseconds(250);
+  if(penLifted)
+    servo.write(170);
+  else
+    servo.write(130);
+  delayMicroseconds(128);
 }
 
 void setLeftSpeed(int spd)
 {
-  leftDelay = calcDelay(spd);
-  if(spd > 70 && spd < 250)
-    leftMode = DOUBLE;
+  if(spd < 0)
+    leftDir = BACKWARD;
   else
-    leftMode = DOUBLE;
+    leftDir = FORWARD;
+  leftDelay = calcDelay(abs(spd));
+  leftMode = DOUBLE;
 }
 
 void setRightSpeed(int spd)
 {
-  rightDelay = calcDelay(spd);
-  if(spd > 70 && spd < 250)
-    leftMode = DOUBLE;
+  if(spd < 0)
+    rightDir = FORWARD;
   else
-    leftMode = DOUBLE;
+    rightDir = BACKWARD;
+  rightDelay = calcDelay(abs(spd));
+  //if(spd > 70 && spd < 250)
+  rightMode = DOUBLE;
  }
 
 long calcDelay(int spd)

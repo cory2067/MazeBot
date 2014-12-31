@@ -100,33 +100,45 @@ public class Serial implements SerialPortEventListener
 	/**
 	 * Handle an event on the serial port. Read the data and print it.
 	 */
-	long startTime, endTime;
+	public final int BATCH_SIZE = 256;
+	public boolean ready = true;
 	public synchronized void serialEvent(SerialPortEvent oEvent) {
 		if (oEvent.getEventType() == SerialPortEvent.DATA_AVAILABLE) {
 			try {
 				if(!input.ready())
 					return;
 				String inputLine=input.readLine();
-				System.out.println("Received: " + inputLine); 
+				//System.out.println("Received: " + inputLine); 
 				if(inputLine.equals("data"))
 				{
-					System.out.println("Sending data");
+					ready = true;
+					System.out.println("Data has been requested");
+					/*System.out.println("Sending data");
 					startTime = System.currentTimeMillis();
-					byte[] a = new byte[128];
-					for(int i = 0; i < 128; i++)
-						a[i] = pairToByte(1, 4);
-					output.write(a);
+					byte[] a = new byte[BATCH_SIZE];
+					for(int i = 0; i < BATCH_SIZE; i++)
+						a[i] = (byte)(63);
+					output.write(a);*/
 				}
 				if(inputLine.equals("done"))
 				{
-					endTime = System.currentTimeMillis();
-					System.out.println("Done in " + (endTime-startTime) + " ms");
+					System.out.println("Data sent");
 				}
 			} catch (Exception e) {
 				MazeBot.print(e.toString());
 			}
 		}
 		// Ignore all the other eventTypes, but you should consider the other ones.
+	}
+	
+	public void sendSteps(byte[] steps)
+	{
+		try {
+			output.write(steps);
+			ready = false;
+		} catch (Exception e) {
+			MazeBot.print("Could not send steps:\n" + e.toString());
+		}
 	}
 
 	public byte pairToByte(int l, int r)
