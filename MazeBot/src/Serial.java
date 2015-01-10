@@ -108,7 +108,6 @@ public class Serial implements SerialPortEventListener
 				if(!input.ready())
 					return;
 				String inputLine=input.readLine();
-				//System.out.println("Received: " + inputLine); 
 				if(inputLine.equals("data"))
 				{
 					ready = true;
@@ -146,13 +145,18 @@ public class Serial implements SerialPortEventListener
 		return (byte) (l*10 + r);
 	}
 	
-	public static byte[] toBytes(int value)
+	/*public static byte[] toBytes(int value)
 	{
 		return new byte[] {
 				(byte) (value >>> 8),
 				(byte) (value)
 		};
-	}
+	}*/
+	
+	/*public boolean arduinoConnected()
+	{
+		return output != null;
+	}*/
 	
 	/*public static void main(String[] args) throws Exception {
 		Serial main = new Serial();

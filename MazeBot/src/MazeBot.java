@@ -36,7 +36,7 @@ public class MazeBot
 	private static VideoCapture cam;
 	private static final int RED = 0, GREEN = 1, BLUE = 2;
 	private static final double[][] COLORS = {{0, 0, 255}, {0, 255, 0}, {255, 0, 0}};
-	private static Point penStart, markL, markR;
+	private static Point markL, markR;
 	private static boolean running = true;
 	
 	public static void main(String[] args) throws InterruptedException
@@ -98,6 +98,7 @@ public class MazeBot
 	public static void run() throws InterruptedException
 	{
 		print("Ready to begin");
+		Point penStart = null;
 		Mat map = new Mat();
 		while(running)
 		{	
@@ -146,6 +147,9 @@ public class MazeBot
 			
 			label.setIcon(new ImageIcon(toBufferedImage(img)));
 		}
+		
+		Point penCm = getGlobal(new Node((int)penStart.x, (int)penStart.y));
+		penCm.x += 1.5; penCm.y += 2.6; //PEN CONSTANTS
 		
 		display = new Mat(); //what will be sent to the screen
 		display = map.clone();
@@ -320,28 +324,94 @@ public class MazeBot
 		
 		print("Solved maze in " + iters + " iterations of A*");
 		print("Maze length: " + solution.size() + " pixels");
+					
+		ArrayList<int[]> belts = new ArrayList<int[]>(); //steps belt len
+		//double[] dist = new double[]{39.5 - penCm.x, 18 - penCm.y};
+		double[] goal = new double[]{42, 18};
+		
+		belts.add(toSteps(getBelts(penCm)));
+		print(Arrays.toString(belts.get(0)));
+		
+		print(penCm.x + " " + goal[0]);
+		for(double i = penCm.x; i < goal[0]; i+=0.02)
+		{
+			double[] belt = getBelts(new Point(i, penCm.y));
+			belts.add(toSteps(belt));
 			
-		ArrayList<int[]> belts = new ArrayList<int[]>();
-		for(int n = 0; n < solution.size(); n++)
-		{
-			belts.add(toSteps(getBelts(getGlobal(solution.get(n)))));
-			//print(Arrays.toString(belts.get(n)));
-		}
-		ArrayList<Byte> steps = new ArrayList<Byte>();
-		steps.add((byte) 0);
-		for(int n = 1; n < solution.size(); n++)
-		{
-			int left = belts.get(n)[0] - belts.get(n-1)[0];
-			int right = belts.get(n)[1] - belts.get(n-1)[1];	
+			/*int left = st[0] - belts.get(q)[0];
+			int right = st[1] - belts.get(q)[1];	
 			if(Math.abs(left) > 4 || Math.abs(right) > 4)
 				print("ERROR: Step instruction exceeds 4");
 			left += 4; right += 4;
 			steps.add((byte) (left * 10 + right));
-			//print(steps.get(n));
+			
+			q++;*/
+		}
+		//print(Arrays.toString(belts.get(1)));
+		//print( penCm.y + " " + goal[1]);
+		for(double i = penCm.y; i > goal[1]; i-=0.02)
+		{
+			double[] belt = getBelts(new Point(goal[0], i));
+			belts.add(toSteps(belt));
+			
+			/*int left = st[0] - belts.get(q)[0];
+			int right = st[1] - belts.get(q)[1];
+			if(Math.abs(left) > 4 || Math.abs(right) > 4)
+				print("ERROR: Step instruction exceeds 4");
+			left += 4; right += 4;
+			steps.add((byte) (left * 10 + right));
+			q++;*/
+			//print(Arrays.toString(toSteps(belt)));
 		}
 		
-		//90 for pen down, 91 for pen up
+		//for(int b[] : belts)
+		//	print(Arrays.toString(b));
 		
+		Point startPoint = getGlobal(solution.get(0));
+		for(double i = goal[0]; i > startPoint.x; i-=0.02)
+		{
+			double[] belt = getBelts(new Point(i, goal[1]));
+			belts.add(toSteps(belt));
+		}
+		for(double i = goal[1]; i < startPoint.y; i+=0.02)
+		{
+			double[] belt = getBelts(new Point(startPoint.x, i));
+			belts.add(toSteps(belt));
+		}
+		//print(Arrays.toString(toSteps(getBelts(startPoint))));
+		//print(Arrays.toString(belts.get(belts.size()-1)));
+		
+		ArrayList<Byte> steps = new ArrayList<Byte>(); //steps to send out
+		for(int n = 0; n < solution.size(); n++)
+		{
+			belts.add(toSteps(getBelts(getGlobal(solution.get(n)))));
+			//print(Arrays.toString(belts.get(belts.size()-1)));
+		}
+		
+		steps.add((byte) 44);
+		for(int n = 1; n < belts.size(); n++)
+		{
+			int left = belts.get(n)[0] - belts.get(n-1)[0];
+			int right = belts.get(n)[1] - belts.get(n-1)[1];	
+			if(Math.abs(left) > 4 || Math.abs(right) > 4)
+			{
+				print("ERROR: Step instruction exceeds 4");
+				print("at " + n + "-- " + "left: " + left + "; right: " + right);
+			}
+			left += 4; right += 4;
+			steps.add((byte) (left * 10 + right));
+			//print(steps.get(n));
+		}
+		steps.add(0, (byte) 91);
+		steps.add(steps.size() - solution.size(), (byte) 90);
+		steps.add((byte) 91);
+		
+		print("Total operations to send: " + steps.size());
+		
+		//if(!serial.arduinoConnected())
+		//	return;
+		
+		//90 for pen down, 91 for pen up
 		int i = 0;
 		while(i < steps.size())
 		{
@@ -359,6 +429,8 @@ public class MazeBot
 			while(!serial.ready)
 				Thread.sleep(1);
 			serial.sendSteps(batch);
+			//print("sending");
+			
 			
 			//print("Drawing: " + (i-256)*100/solution.size() + "%");
 			//maybe add progress meter	
@@ -366,7 +438,7 @@ public class MazeBot
 		
 		while(!serial.ready)
 			Thread.sleep(1);
-		print("Drawing: 100%");
+		//print("Drawing: 100%");
 		//print(solvePath.size());
 		//Imgproc.resize(map, display, new Size(320, 240));
 		//for(Node n : solvePath)
@@ -408,6 +480,7 @@ public class MazeBot
 		return new Point(x, y);
 	}
 	
+	//returns coordinates in cm
 	public static Point getGlobal(Node n) //takes raw input
 	{
 		Point global = new Point();
