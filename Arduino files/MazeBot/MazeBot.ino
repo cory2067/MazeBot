@@ -9,7 +9,6 @@ Adafruit_StepperMotor *left = AFMS.getStepper(200, 2);
 Servo servo;
 
 #define BATCH_SIZE 256
-#define SPEED 150
 
 unsigned long time, leftDelay, rightDelay, leftLast, rightLast;
 int leftMode = SINGLE, rightMode = SINGLE;
@@ -79,9 +78,15 @@ void loop()
       if(stepL == 5)
       {
         if(stepR == 4)
+        {
           penLifted = false;
+          servo.write(120);
+        }
         else if(stepR == 3)
+        {
           penLifted = true;
+          servo.write(165);
+        }
         setLeftSpeed(0);
         setRightSpeed(0); 
         delay(250);
@@ -98,8 +103,11 @@ void loop()
         }
         else
         {
-          setLeftSpeed(SPEED * (steps[arrayLoc] / 10 - 4) / m);
-          setRightSpeed(SPEED * (steps[arrayLoc] % 10 - 4) / m); 
+          int maxspd = 150;
+          if(penLifted)
+            maxspd = 350; 
+          setLeftSpeed(maxspd * (steps[arrayLoc] / 10 - 4) / m);
+          setRightSpeed(maxspd * (steps[arrayLoc] % 10 - 4) / m); 
         }
       }
       arrayLoc++;

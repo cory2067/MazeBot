@@ -12,7 +12,10 @@ import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JScrollPane;
+import javax.swing.JSlider;
 import javax.swing.JTextArea;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 
 import org.opencv.core.Core;
 import org.opencv.core.Mat;
@@ -32,8 +35,10 @@ public class MazeBot
 	private static JTextArea console;
 	private static JLabel label;
 	private static JButton startButton;
+	private static JSlider erode;
 	private static Mat img, display, circle, circleTop;
 	private static VideoCapture cam;
+	private static int erodeVal = 1;
 	private static final int RED = 0, GREEN = 1, BLUE = 2;
 	private static final double[][] COLORS = {{0, 0, 255}, {0, 255, 0}, {255, 0, 0}};
 	private static Point markL, markR;
@@ -52,7 +57,20 @@ public class MazeBot
 		label.setIcon(new ImageIcon(toBufferedImage(black)));
 		console = new JTextArea(30, 24);
 		frame.add(new JScrollPane(console));
-		startButton = new JButton("Start");
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		frame.setVisible(true);
+		
+		/*JFrame settings = new JFrame("MazeBot");
+		settings.setLayout(new FlowLayout());
+		settings.setSize(300, 150);*/
+		erode = new JSlider(1, 24, 1);
+		erode.addChangeListener(new ChangeListener() {
+			public void stateChanged(ChangeEvent e) {
+				erodeVal = erode.getValue();
+			}
+		});
+		frame.add(erode);
+		startButton = new JButton("Next");
 		startButton.setEnabled(false);
 		startButton.addActionListener(new ActionListener() {
 			public void actionPerformed(ActionEvent e) {
@@ -60,8 +78,8 @@ public class MazeBot
 			}
 		});
 		frame.add(startButton);
-		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-		frame.setVisible(true);
+		/*settings.setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
+		settings.setVisible(true);*/
 		
 		try{
 			serial = new Serial();
@@ -90,6 +108,7 @@ public class MazeBot
 		//questionable infinite loop
 		while(true)
 		{
+			startButton.setText("Next");
 			running = true;
 			run();
 		}
@@ -100,7 +119,8 @@ public class MazeBot
 		print("Ready to begin");
 		Point penStart = null;
 		Mat map = new Mat();
-		while(running)
+		int pushCount = 0;
+		while(pushCount < 2)
 		{	
 			img = new Mat();
 			Mat temp = new Mat();
@@ -116,40 +136,50 @@ public class MazeBot
 			Imgproc.morphologyEx(temp, img, Imgproc.MORPH_OPEN, kernel);
 			
 			//maybe try erode/dilate if quality is insufficient
-			//kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(1, 1));
-			///Imgproc.morphologyEx(img, temp, Imgproc.MORPH_ERODE, kernel);
-			//img = temp.clone();
+			kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(erodeVal, erodeVal));
+			Imgproc.morphologyEx(img, temp, Imgproc.MORPH_ERODE, kernel);
+			img = temp.clone();
 			
 			Mat loc = new Mat();
 			
-			Mat top = img.rowRange(0, 240).colRange(400, 639);
-			Imgproc.matchTemplate(top, circleTop, loc, Imgproc.TM_CCOEFF_NORMED);
-			Point max = Core.minMaxLoc(loc).maxLoc;
-			max.x += 418; max.y += 21;
-			penStart = max.clone();
-			Core.circle(img, max, 12, new Scalar(0,0,0));
-			
-			Mat left = img.rowRange(240, 479).colRange(0, 320);
-			Imgproc.matchTemplate(left, circle, loc, Imgproc.TM_CCOEFF_NORMED);
-			max = Core.minMaxLoc(loc).maxLoc;
-			max.x += 17; max.y += 257;
-			markL = max.clone();
-			Core.circle(img, max, 12, new Scalar(0));
-			
-			Mat right = img.rowRange(240, 479).colRange(320, 639);
-			Imgproc.matchTemplate(right, circle, loc, Imgproc.TM_CCOEFF_NORMED);
-			max = Core.minMaxLoc(loc).maxLoc;
-			max.x += 337; max.y += 257;
-			markR = max.clone();
-			Core.circle(img, max, 12, new Scalar(0));
+			if(pushCount == 0)
+			{
+				Mat top = img.rowRange(0, 240).colRange(400, 639);
+				Imgproc.matchTemplate(top, circleTop, loc, Imgproc.TM_CCOEFF_NORMED);
+				Point max = Core.minMaxLoc(loc).maxLoc;
+				max.x += 418; max.y += 21;
+				penStart = max.clone();
+				Core.circle(img, max, 12, new Scalar(0,0,0));
+				
+				Mat left = img.rowRange(240, 479).colRange(0, 320);
+				Imgproc.matchTemplate(left, circle, loc, Imgproc.TM_CCOEFF_NORMED);
+				max = Core.minMaxLoc(loc).maxLoc;
+				max.x += 17; max.y += 257;
+				markL = max.clone();
+				Core.circle(img, max, 12, new Scalar(0));
+				
+				Mat right = img.rowRange(240, 479).colRange(320, 639);
+				Imgproc.matchTemplate(right, circle, loc, Imgproc.TM_CCOEFF_NORMED);
+				max = Core.minMaxLoc(loc).maxLoc;
+				max.x += 337; max.y += 257;
+				markR = max.clone();
+				Core.circle(img, max, 12, new Scalar(0));
+			}
 			
 			//print(Arrays.toString(getBelts(getGlobal(new Node((int)penStart.x, (int)penStart.y)))));
 			
 			label.setIcon(new ImageIcon(toBufferedImage(img)));
+			
+			if(!running)
+			{
+				running = true;
+				pushCount++;
+				startButton.setText("Start");
+			}
 		}
 		
 		Point penCm = getGlobal(new Node((int)penStart.x, (int)penStart.y));
-		penCm.x += 1.5; penCm.y += 2.6; //PEN CONSTANTS
+		penCm.x += 1.7; penCm.y += 2.4; //PEN CONSTANTS
 		
 		display = new Mat(); //what will be sent to the screen
 		display = map.clone();
@@ -296,7 +326,7 @@ public class MazeBot
 		if(failure)
 		{
 			print("Cannot solve maze");
-			//DO SOMETHING HERE
+			restart();
 			return;
 		}
 		
@@ -324,15 +354,19 @@ public class MazeBot
 		
 		print("Solved maze in " + iters + " iterations of A*");
 		print("Maze length: " + solution.size() + " pixels");
-					
+		
+		/*running = true;
+		startButton.setEnabled(true);
+		startButton.setText("Continue?");	*/		
+		
 		ArrayList<int[]> belts = new ArrayList<int[]>(); //steps belt len
 		//double[] dist = new double[]{39.5 - penCm.x, 18 - penCm.y};
-		double[] goal = new double[]{42, 18};
+		double[] goal = new double[]{43, 18};
 		
 		belts.add(toSteps(getBelts(penCm)));
-		print(Arrays.toString(belts.get(0)));
+		//print(Arrays.toString(belts.get(0)));
 		
-		print(penCm.x + " " + goal[0]);
+		//print(penCm.x + " " + goal[0]);
 		for(double i = penCm.x; i < goal[0]; i+=0.02)
 		{
 			double[] belt = getBelts(new Point(i, penCm.y));
@@ -388,6 +422,27 @@ public class MazeBot
 			//print(Arrays.toString(belts.get(belts.size()-1)));
 		}
 		
+		int lower = belts.size() - solution.size();
+		int lift = belts.size();
+		
+		Point endPoint = getGlobal(solution.get(solution.size() - 1));
+		System.out.println(endPoint.y);
+		for(double i = endPoint.y; i < 62; i+=0.02)
+		{
+			double[] belt = getBelts(new Point(endPoint.x, i));
+			belts.add(toSteps(belt));
+		}
+		for(double i = endPoint.x; i < penCm.x; i+=0.02)
+		{
+			double[] belt = getBelts(new Point(i, 62));
+			belts.add(toSteps(belt));
+		}
+		for(double i = 62; i > penCm.y; i-=0.02)
+		{
+			double[] belt = getBelts(new Point(penCm.x, i));
+			belts.add(toSteps(belt));
+		}
+	
 		steps.add((byte) 44);
 		for(int n = 1; n < belts.size(); n++)
 		{
@@ -403,8 +458,8 @@ public class MazeBot
 			//print(steps.get(n));
 		}
 		steps.add(0, (byte) 91);
-		steps.add(steps.size() - solution.size(), (byte) 90);
-		steps.add((byte) 91);
+		steps.add(lower, (byte) 90);
+		steps.add(lift, (byte) 91);
 		
 		print("Total operations to send: " + steps.size());
 		
@@ -444,13 +499,17 @@ public class MazeBot
 		//for(Node n : solvePath)
 		//	drawPoint(n, RED);
 		updateDisplay();
+		restart();
+	}
+	
+	public static void restart() throws InterruptedException
+	{
 		startButton.setEnabled(true);
 		startButton.setText("Restart");
 		running = true;
 		while(running) 
 			Thread.sleep(20);
 		print("Restarting");
-		startButton.setText("Start");
 	}
 	
 	//old version -- redundant trigonometry; less optimized
@@ -485,10 +544,10 @@ public class MazeBot
 	{
 		Point global = new Point();
 		double d = Math.sqrt(Math.pow(markL.x - markR.x, 2) + Math.pow(markL.y - markR.y, 2));
-		final double scale = 25.6 / d; //constant: cm between markers, to make a scaling constant from px -> cm
+		final double scale = 25.7/d; //25.7 / d; //constant: cm between markers, to make a scaling constant from px -> cm
 		Point local = getLocal(n);
-		global.x = local.x * scale + 12.1; //constant: cm from edge to L
-		global.y = 47.3 - local.y * scale; //constant: cm from top to marker	
+		global.x = local.x * scale + 12.8;//11.3;//13;//12;//constant: cm from edge to L
+		global.y = /*47.6*/50 - local.y * scale; //constant: cm from top to marker (actually 48)
 		return global;
 	}
 	
@@ -502,7 +561,7 @@ public class MazeBot
 	
 	public static double[] getBelts(Point p) //takes a global point
 	{
-		final double alpha = 1.0, beta = 7.8, gamma = 49.5;
+		final double alpha = 1.0, beta = 7.8, gamma = 51;//49.4;//50.5;//49.5;
 		
 		double[] belts = new double[2];
 		belts[0] = Math.sqrt(Math.pow(p.x - alpha, 2) + Math.pow(p.y - beta, 2));
