@@ -29,7 +29,6 @@ import org.opencv.imgproc.Imgproc;
 
 public class MazeBot 
 {
-	//200 micrometers per step
 	public static Node goal;
 	public static Serial serial;
 	private static JTextArea console;
@@ -125,7 +124,8 @@ public class MazeBot
 			img = new Mat();
 			Mat temp = new Mat();
 			
-			cam.read(map); //read raw img (640x480)
+			if(pushCount == 0)
+				cam.read(map); //read raw img (640x480)
 			Imgproc.cvtColor(map, img, Imgproc.COLOR_RGBA2GRAY); //convert to grayscale
 			
 			//apply adaptive threshold to convert to black and white
@@ -136,9 +136,12 @@ public class MazeBot
 			Imgproc.morphologyEx(temp, img, Imgproc.MORPH_OPEN, kernel);
 			
 			//maybe try erode/dilate if quality is insufficient
-			kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(erodeVal, erodeVal));
-			Imgproc.morphologyEx(img, temp, Imgproc.MORPH_ERODE, kernel);
-			img = temp.clone();
+			if(pushCount == 1)
+			{
+				kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(erodeVal, erodeVal));
+				Imgproc.morphologyEx(img, temp, Imgproc.MORPH_ERODE, kernel);
+				img = temp.clone();
+			}
 			
 			Mat loc = new Mat();
 			
@@ -179,7 +182,7 @@ public class MazeBot
 		}
 		
 		Point penCm = getGlobal(new Node((int)penStart.x, (int)penStart.y));
-		penCm.x += 1.7; penCm.y += 2.4; //PEN CONSTANTS
+		penCm.x += 1.7; penCm.y += 2.7; //PEN CONSTANTS
 		
 		display = new Mat(); //what will be sent to the screen
 		display = map.clone();
@@ -525,6 +528,7 @@ public class MazeBot
 		return new Point(x, y);
 	}*/
 	
+	//could probably merge with getGlobal
 	public static Point getLocal(Node n)
 	{
 		Point i = new Point(n.x, n.y);
