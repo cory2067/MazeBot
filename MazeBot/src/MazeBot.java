@@ -130,7 +130,7 @@ public class MazeBot
 			
 			//apply adaptive threshold to convert to black and white
 			Imgproc.adaptiveThreshold(img, temp, 1000, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 9, 8);
-
+			
 			//morph open to improve clarity of maze walls
 			Mat kernel = Imgproc.getStructuringElement(Imgproc.CV_SHAPE_RECT, new Size(2, 2));
 			Imgproc.morphologyEx(temp, img, Imgproc.MORPH_OPEN, kernel);
@@ -182,7 +182,7 @@ public class MazeBot
 		}
 		
 		Point penCm = getGlobal(new Node((int)penStart.x, (int)penStart.y));
-		penCm.x += 1.7; penCm.y += 2.7; //PEN CONSTANTS
+		penCm.x += 2.0; penCm.y += 2.7; //PEN CONSTANTS
 		
 		display = new Mat(); //what will be sent to the screen
 		display = map.clone();
@@ -364,6 +364,7 @@ public class MazeBot
 		
 		ArrayList<int[]> belts = new ArrayList<int[]>(); //steps belt len
 		//double[] dist = new double[]{39.5 - penCm.x, 18 - penCm.y};
+		System.out.println(penCm.y);
 		double[] goal = new double[]{43, 18};
 		
 		belts.add(toSteps(getBelts(penCm)));
@@ -429,7 +430,7 @@ public class MazeBot
 		int lift = belts.size();
 		
 		Point endPoint = getGlobal(solution.get(solution.size() - 1));
-		System.out.println(endPoint.y);
+		//System.out.println(endPoint.y);
 		for(double i = endPoint.y; i < 62; i+=0.02)
 		{
 			double[] belt = getBelts(new Point(endPoint.x, i));
